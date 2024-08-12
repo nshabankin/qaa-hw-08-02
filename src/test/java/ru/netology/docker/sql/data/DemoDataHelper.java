@@ -52,16 +52,28 @@ public class DemoDataHelper {
 
     // Valid user AuthInfo class
     @Value
-    public static class ValidAuthInfo {
+    public static class hardcodedAuthInfo {
         String validLogin;
         String validPassword;
         String invalidPassword;
+        String token;
+        String card1Number;
+        String card2Number;
+        String amountInKopecks;
     }
 
     // Method to retrieve the valid AuthInfo
-    public static ValidAuthInfo getValidAuthInfo() {
+    public static hardcodedAuthInfo getValidAuthInfo() {
         // Hardcoded valid user credentials
-        return new ValidAuthInfo("petya", "123qwerty", "wrongpassword");
+        return new hardcodedAuthInfo(
+                "petya",
+                "123qwerty",
+                "wrongpassword",
+                "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbiI6InBldHlhIn0.TotWpKiZWvp_H67GvgakR-wdIfBVpLb5eqbb246_CKo",
+                "5559 0000 0000 0002",
+                "5559 0000 0000 0008",
+                "5000"
+        );
     }
 
     // AuthInfo class to represent user information

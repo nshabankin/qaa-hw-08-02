@@ -3,6 +3,7 @@ package ru.netology.docker.api.test;
 import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
 import io.restassured.response.Response;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.netology.docker.api.request.RequestHelper;
@@ -14,37 +15,41 @@ import java.util.Map;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static ru.netology.docker.sql.data.DemoDataHelper.clearDatabase;
 
 public class ApiTest {
 
-    private String token;
-    private DemoDataHelper.ValidAuthInfo validAuthInfo;
-    private DemoDataHelper.AuthCode authCode;
+    // Valid hardcoded AuthInfo from demo data
+    String validLogin = DemoDataHelper.getValidAuthInfo().getValidLogin();
+    String validPassword = DemoDataHelper.getValidAuthInfo().getValidPassword();
+    String token = DemoDataHelper.getValidAuthInfo().getToken();
+    String card1Number = DemoDataHelper.getValidAuthInfo().getCard1Number();
+    String card2Number = DemoDataHelper.getValidAuthInfo().getCard2Number();
+    String amountInKopecks = DemoDataHelper.getValidAuthInfo().getAmountInKopecks();
+
+    // Get actual AuthInfo from demo data using hardcoded login
+    DemoDataHelper.AuthInfo user = DemoDataHelper.getAuthInfoFromDb(validLogin);
 
     @BeforeEach
     void setUp() {
         // Set default parser to JSON
         RestAssured.defaultParser = Parser.JSON;
-
-        // Retrieve valid authentication info (login and password)
-        validAuthInfo = DemoDataHelper.getValidAuthInfo();
-
-        // Retrieve authentication code for the user from the database
-        DemoDataHelper.AuthInfo authInfoFromDb = DemoDataHelper.getAuthInfoFromDb(validAuthInfo.getValidLogin());
-        authCode = DemoDataHelper.getAuthCodeFromDb(authInfoFromDb.getId());
-        assertNotNull(authCode, "Auth code should not be null");
-
-        // Hardcode token
-        token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbiI6InBldHlhIn0.TotWpKiZWvp_H67GvgakR-wdIfBVpLb5eqbb246_CKo";
     }
 
+    // Method to clear and close the database after all tests
+    @AfterAll
+    public static void tearDown() {
+        clearDatabase();
+    }
+
+
     @Test
-    void testLogin() {
+    void shouldLogin() {
 
         // Create the login request body using valid login and password
         Map<String, String> loginRequestBody = new HashMap<>();
-        loginRequestBody.put("login", validAuthInfo.getValidLogin());
-        loginRequestBody.put("password", validAuthInfo.getValidPassword());
+        loginRequestBody.put("login", validLogin);
+        loginRequestBody.put("password", validPassword);
 
         // Send POST request to /auth endpoint to authenticate the user
         Response response = RequestHelper.sendPostRequest("/auth", loginRequestBody, null);
@@ -54,11 +59,15 @@ public class ApiTest {
     }
 
     @Test
-    void testVerification() {
+    void shouldVerifyWithAuthCode() {
+
+        // Retrieve authentication code for the user from the database
+        DemoDataHelper.AuthCode authCode = DemoDataHelper.getAuthCodeFromDb(user.getId());
+        assertNotNull(authCode, "Auth code should not be null");
 
         // Create the verification request body using valid login and retrieved verification code
         Map<String, String> verificationRequestBody = new HashMap<>();
-        verificationRequestBody.put("login", validAuthInfo.getValidLogin());
+        verificationRequestBody.put("login", validLogin);
         verificationRequestBody.put("code", authCode.getCode());
 
         // Send POST request to /auth/verification endpoint to verify the code
@@ -72,7 +81,7 @@ public class ApiTest {
     }
 
     @Test
-    void testGetCards() {
+    void shouldGetCards() {
 
         // Prepare headers with the token obtained from the previous steps
         Map<String, String> headers = new HashMap<>();
@@ -86,13 +95,13 @@ public class ApiTest {
     }
 
     @Test
-    void testTransfer() {
+    void shouldTransferFromCard1ToCard2() {
 
         // Create the transfer request body with appropriate details
         Map<String, String> transferRequestBody = new HashMap<>();
-        transferRequestBody.put("from", "5559 0000 0000 0002");
-        transferRequestBody.put("to", "5559 0000 0000 0008");
-        transferRequestBody.put("amount", "5000");
+        transferRequestBody.put("from", card1Number);
+        transferRequestBody.put("to", card2Number);
+        transferRequestBody.put("amount", amountInKopecks);
 
         // Prepare headers with the token obtained from the previous steps
         Map<String, String> headers = new HashMap<>();
