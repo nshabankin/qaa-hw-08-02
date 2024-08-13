@@ -56,7 +56,7 @@ public class DemoDataHelper {
         String validLogin;
         String validPassword;
         String invalidPassword;
-        String token;
+        //String token;
         String card1Number;
         String card2Number;
         String amountInKopecks;
@@ -69,7 +69,7 @@ public class DemoDataHelper {
                 "petya",
                 "123qwerty",
                 "wrongpassword",
-                "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbiI6InBldHlhIn0.TotWpKiZWvp_H67GvgakR-wdIfBVpLb5eqbb246_CKo",
+                //"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbiI6InBldHlhIn0.TotWpKiZWvp_H67GvgakR-wdIfBVpLb5eqbb246_CKo",
                 "5559 0000 0000 0002",
                 "5559 0000 0000 0008",
                 "5000"

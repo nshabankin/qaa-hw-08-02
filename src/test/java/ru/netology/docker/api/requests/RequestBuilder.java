@@ -1,4 +1,4 @@
-package ru.netology.docker.api.request;
+package ru.netology.docker.api.requests;
 
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -6,7 +6,7 @@ import io.restassured.specification.RequestSpecification;
 
 import java.util.Map;
 
-public class RequestHelper {
+public class RequestBuilder {
 
     private static final String BASE_URL = "http://localhost:9999/api";
 
