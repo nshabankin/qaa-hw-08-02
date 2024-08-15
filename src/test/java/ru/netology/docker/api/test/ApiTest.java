@@ -4,10 +4,10 @@ import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.*;
-import ru.netology.docker.api.requests.RequestBuilder;
 import ru.netology.docker.sql.data.DemoDataHelper;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -18,28 +18,42 @@ import static ru.netology.docker.sql.data.DemoDataHelper.clearDatabase;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class ApiTest {
 
+    private static final String base_uri = "http://localhost:9999/api";
     private static String token;  // Token will be stored here
 
     // Valid hardcoded AuthInfo from demo data
-    String validLogin = DemoDataHelper.getValidAuthInfo().getValidLogin();
-    String validPassword = DemoDataHelper.getValidAuthInfo().getValidPassword();
-    //String token = DemoDataHelper.getValidAuthInfo().getToken();
-    String card1Number = DemoDataHelper.getValidAuthInfo().getCard1Number();
-    String card2Number = DemoDataHelper.getValidAuthInfo().getCard2Number();
-    String amountInKopecks = DemoDataHelper.getValidAuthInfo().getAmountInKopecks();
+    static String hardcodedLogin = DemoDataHelper.getHardcodedAuthInfo().getHardcodedLogin();
+    static String hardcodedPassword = DemoDataHelper.getHardcodedAuthInfo().getHardcodedPassword();
 
     // Get actual AuthInfo from demo data using hardcoded login
-    DemoDataHelper.AuthInfo user = DemoDataHelper.getAuthInfoFromDb(validLogin);
+    static DemoDataHelper.AuthInfo user = DemoDataHelper.getAuthInfoFromDb(hardcodedLogin);
 
-    @BeforeEach
-    void setUp() {
+    // Get card IDs from demo data using user_id
+    String card1Id = DemoDataHelper.getCardIdsFromDb(user.getId()).getCard1Id();
+    String card2Id = DemoDataHelper.getCardIdsFromDb(user.getId()).getCard2Id();
+
+    // Get card numbers from demo data using user_id
+    String card1Number = DemoDataHelper.getCardNumbersFromDb(user.getId()).getCard1Number();
+    String card2Number = DemoDataHelper.getCardNumbersFromDb(user.getId()).getCard2Number();
+
+    // Variables to hold initial card balances
+    static int initialCard1Balance;
+    static int initialCard2Balance;
+
+    // Variables to hold final card balances
+    int finalCard1Balance;
+    int finalCard2Balance;
+
+    // Amount to transfer
+    int amountToTransfer = 5000;
+
+    @BeforeAll
+    static void setUp() {
         // Set default parser to JSON
         RestAssured.defaultParser = Parser.JSON;
 
         // Ensure token is generated before each test if it's not already set
-        if (token == null) {
-            generateToken();
-        }
+        generateToken();
     }
 
     // Method to clear and close the database after all tests
@@ -48,23 +62,33 @@ public class ApiTest {
         clearDatabase();
     }
 
-    // Method to generate the token by logging in and verifying auth code
-    void generateToken() {
+    // Method to generate the token by logging in and verifying with auth code with assertions
+    static void generateToken() {
+
         // Login
-        Map<String, String> loginRequestBody = new HashMap<>();
-        loginRequestBody.put("login", validLogin);
-        loginRequestBody.put("password", validPassword);
-        Response loginResponse = RequestBuilder.sendPostRequest("/auth", loginRequestBody, null);
+        Map<String, Object> loginRequestBody = new HashMap<>();
+        loginRequestBody.put("login", hardcodedLogin);
+        loginRequestBody.put("password", hardcodedPassword);
+
+        Response loginResponse = RestAssured.given()
+                .contentType("application/json")
+                .body(loginRequestBody)
+                .post(base_uri + "/auth");
+
         assertThat(loginResponse.statusCode(), equalTo(200));
 
         // Verify with auth code
         DemoDataHelper.AuthCode authCode = DemoDataHelper.getAuthCodeFromDb(user.getId());
         assertNotNull(authCode, "Auth code should not be null");
 
-        Map<String, String> verificationRequestBody = new HashMap<>();
-        verificationRequestBody.put("login", validLogin);
+        Map<String, Object> verificationRequestBody = new HashMap<>();
+        verificationRequestBody.put("login", hardcodedLogin);
         verificationRequestBody.put("code", authCode.getCode());
-        Response verificationResponse = RequestBuilder.sendPostRequest("/auth/verification", verificationRequestBody, null);
+
+        Response verificationResponse = RestAssured.given()
+                .contentType("application/json")
+                .body(verificationRequestBody)
+                .post(base_uri + "/auth/verification");
 
         // Extract and store the token
         token = verificationResponse.path("token");
@@ -73,42 +97,6 @@ public class ApiTest {
 
     @Test
     @Order(1)
-    void shouldLogin() {
-
-        // Create the login request body using valid login and password
-        Map<String, String> loginRequestBody = new HashMap<>();
-        loginRequestBody.put("login", validLogin);
-        loginRequestBody.put("password", validPassword);
-
-        // Send POST request to /auth endpoint to authenticate the user
-        Response response = RequestBuilder.sendPostRequest("/auth", loginRequestBody, null);
-
-        // Assert that the status is 200 (indicating successful login)
-        assertThat(response.statusCode(), equalTo(200));
-    }
-
-    @Test
-    @Order(2)
-    void shouldVerifyWithAuthCode() {
-
-        // Retrieve authentication code for the user from the database
-        DemoDataHelper.AuthCode authCode = DemoDataHelper.getAuthCodeFromDb(user.getId());
-        assertNotNull(authCode, "Auth code should not be null");
-
-        // Create the verification request body using valid login and retrieved verification code
-        Map<String, String> verificationRequestBody = new HashMap<>();
-        verificationRequestBody.put("login", validLogin);
-        verificationRequestBody.put("code", authCode.getCode());
-
-        // Send POST request to /auth/verification endpoint to verify the code
-        Response response = RequestBuilder.sendPostRequest("/auth/verification", verificationRequestBody, null);
-
-        // Assert that the status code is 200 (indicating successful verification)
-        assertThat(response.statusCode(), equalTo(200));
-    }
-
-    @Test
-    @Order(3)
     void shouldGetCards() {
 
         // Prepare headers with the token obtained from the previous steps
@@ -116,30 +104,79 @@ public class ApiTest {
         headers.put("Authorization", "Bearer " + token);
 
         // Send GET request to /cards endpoint to retrieve user's cards
-        Response response = RequestBuilder.sendGetRequest("/cards", headers);
+        Response response = RestAssured.given()
+                .contentType("application/json")
+                .headers(headers)
+                .get(base_uri + "/cards");
 
         // Assert that the status code is 200 (indicating successful retrieval of cards)
         assertThat(response.statusCode(), equalTo(200));
+
+        // Extract card balances from the response
+        List<Map<String, Object>> cards = response.jsonPath().getList("$");
+
+        // Match card IDs to their balances
+        for (Map<String, Object> card : cards) {
+            String cardId = (String) card.get("id");
+            int balance = (int) card.get("balance");
+
+            if (cardId.equals(card1Id)) {
+                initialCard1Balance = balance;
+            } else if (cardId.equals(card2Id)) {
+                initialCard2Balance = balance;
+            }
+        }
     }
 
     @Test
-    @Order(4)
+    @Order(2)
     void shouldTransferFromCard1ToCard2() {
 
         // Create the transfer request body with appropriate details
-        Map<String, String> transferRequestBody = new HashMap<>();
+        Map<String, Object> transferRequestBody = new HashMap<>();
         transferRequestBody.put("from", card1Number);
         transferRequestBody.put("to", card2Number);
-        transferRequestBody.put("amount", amountInKopecks);
+        transferRequestBody.put("amount", amountToTransfer);
 
         // Prepare headers with the token obtained from the previous steps
         Map<String, String> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + token);
 
         // Send POST request to /transfer endpoint to initiate the money transfer
-        Response response = RequestBuilder.sendPostRequest("/transfer", transferRequestBody, headers);
+        Response transferResponse = RestAssured.given()
+                .contentType("application/json")
+                .headers(headers)
+                .body(transferRequestBody)
+                .post(base_uri + "/transfer");
 
         // Assert that the status code is 200 (indicating successful transfer)
-        assertThat(response.statusCode(), equalTo(200));
+        assertThat(transferResponse.statusCode(), equalTo(200));
+
+        // Get card balances after the transfer
+        Response cardsResponse = RestAssured.given()
+                .contentType("application/json")
+                .headers(headers)
+                .get(base_uri + "/cards");
+
+        // Extract card balances from the response
+        List<Map<String, Object>> updatedCards = cardsResponse.jsonPath().getList("$");
+
+        // Match card IDs to their balances
+        for (Map<String, Object> card : updatedCards) {
+            String cardId = (String) card.get("id");
+            int balance = (int) card.get("balance");
+
+            if (cardId.equals(card1Id)) {
+                finalCard1Balance = balance;
+            } else if (cardId.equals(card2Id)) {
+                finalCard2Balance = balance;
+            }
+        }
+
+        // Assert the amounts of the cards after the transfer
+        assertThat("Card 1 balance should decrease by the transferred amount",
+                finalCard1Balance, equalTo(initialCard1Balance - amountToTransfer));
+        assertThat("Card 2 balance should increase by the transferred amount",
+                finalCard2Balance, equalTo(initialCard2Balance + amountToTransfer));
     }
 }

@@ -15,3 +15,6 @@ SELECT * FROM users WHERE login = ?;
 
 -- select_latest_auth_code_by_user_id
 SELECT * FROM auth_codes WHERE user_id = ? ORDER BY created DESC LIMIT 1;
+
+-- select_card_info_by_user_id
+SELECT * FROM cards WHERE user_id = ?;

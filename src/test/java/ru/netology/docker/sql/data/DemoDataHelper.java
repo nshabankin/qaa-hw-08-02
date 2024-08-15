@@ -4,11 +4,14 @@ import lombok.SneakyThrows;
 import lombok.Value;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.MapHandler;
+import org.apache.commons.dbutils.handlers.MapListHandler;
 import ru.netology.docker.sql.util.SQLQueries;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class DemoDataHelper {
 
@@ -23,6 +26,9 @@ public class DemoDataHelper {
     // SQL Queries
     private static final String SELECT_USER_BY_LOGIN = SQLQueries.getQuery("select_user_by_login");
     private static final String SELECT_LATEST_AUTH_CODE_BY_USER_ID = SQLQueries.getQuery("select_latest_auth_code_by_user_id");
+    private static final String SELECT_CARD_INFO_BY_USER_ID = SQLQueries.getQuery("select_card_info_by_user_id");
+
+
     private static final String CLEAR_CARD_TRANSACTIONS = SQLQueries.getQuery("clear_card_transactions");
     private static final String CLEAR_CARDS = SQLQueries.getQuery("clear_cards");
     private static final String CLEAR_AUTH_CODES = SQLQueries.getQuery("clear_auth_codes");
@@ -50,29 +56,19 @@ public class DemoDataHelper {
         }
     }
 
-    // Valid user AuthInfo class
+    // Hardcoded valid user AuthInfo class
     @Value
     public static class hardcodedAuthInfo {
-        String validLogin;
-        String validPassword;
-        String invalidPassword;
-        //String token;
-        String card1Number;
-        String card2Number;
-        String amountInKopecks;
+        String hardcodedLogin;
+        String hardcodedPassword;
     }
 
-    // Method to retrieve the valid AuthInfo
-    public static hardcodedAuthInfo getValidAuthInfo() {
+    // Method to retrieve the valid AuthInfo from demo data
+    public static hardcodedAuthInfo getHardcodedAuthInfo() {
         // Hardcoded valid user credentials
         return new hardcodedAuthInfo(
-                "petya",
-                "123qwerty",
-                "wrongpassword",
-                //"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJsb2dpbiI6InBldHlhIn0.TotWpKiZWvp_H67GvgakR-wdIfBVpLb5eqbb246_CKo",
-                "5559 0000 0000 0002",
-                "5559 0000 0000 0008",
-                "5000"
+                "vasya",
+                "qwerty123"
         );
     }
 
@@ -149,6 +145,82 @@ public class DemoDataHelper {
                 );
             }
             return null;
+        }
+    }
+
+    // CardIdsByUserId class that represents card IDs belonging to a user ID
+    @Value
+    public static class CardIdsByUserId {
+        String card1Id;
+        String card2Id;
+    }
+
+    /**
+     * Fetches the card IDs for a user by their user_id.
+     *
+     * @param userId the ID of the user
+     * @return CardIdsByUserId object containing card IDs for the user
+     */
+    @SneakyThrows
+    public static CardIdsByUserId getCardIdsFromDb(String userId) {
+
+        // Establish a connection to the database
+        try (Connection connection = getConnection()) {
+
+            // Create a QueryRunner
+            QueryRunner runner = new QueryRunner();
+
+            // Fetch the card numbers for the specified user_id
+            List<Map<String, Object>> result = runner.query(connection, SELECT_CARD_INFO_BY_USER_ID, new MapListHandler(), userId);
+
+            // Stream through the result and map to card numbers
+            List<String> cardIds = result.stream()
+                    .map(row -> (String) row.get("id"))
+                    .collect(Collectors.toList());
+
+            // Retrieve the first two cards or return empty strings if not present
+            String card1 = cardIds.stream().findFirst().orElse("");
+            String card2 = cardIds.stream().skip(1).findFirst().orElse("");
+
+            return new CardIdsByUserId(card1, card2);
+        }
+    }
+
+    // CardNumbersByUserId class that represents card numbers belonging to a user ID
+    @Value
+    public static class CardNumbersByUserId {
+        String card1Number;
+        String card2Number;
+    }
+
+    /**
+     * Fetches the card numbers for a user by their user_id.
+     *
+     * @param userId the ID of the user
+     * @return CardNumbersByUserId object containing card numbers for the user
+     */
+    @SneakyThrows
+    public static CardNumbersByUserId getCardNumbersFromDb(String userId) {
+
+        // Establish a connection to the database
+        try (Connection connection = getConnection()) {
+
+            // Create a QueryRunner
+            QueryRunner runner = new QueryRunner();
+
+            // Fetch the card numbers for the specified user_id
+            List<Map<String, Object>> result = runner.query(connection, SELECT_CARD_INFO_BY_USER_ID, new MapListHandler(), userId);
+
+            // Stream through the result and map to card numbers
+            List<String> cardNumbers = result.stream()
+                    .map(row -> (String) row.get("number"))
+                    .collect(Collectors.toList());
+
+            // Retrieve the first two cards or return empty strings if not present
+            String card1Number = cardNumbers.stream().findFirst().orElse("");
+            String card2Number = cardNumbers.stream().skip(1).findFirst().orElse("");
+
+            return new CardNumbersByUserId(card1Number, card2Number);
         }
     }
 }
